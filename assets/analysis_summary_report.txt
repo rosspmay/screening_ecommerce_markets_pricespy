@@ -1,0 +1,63 @@
+===============================================
+MARKET COLLUSION ANALYSIS - SUMMARY REPORT
+===============================================
+
+Date Generated: January 26, 2026 
+
+OVERALL FINDINGS
+----------------
+Total markets analyzed: 192
+Total flagged markets: 8 (4.2%)
+
+BREAKDOWN BY REGION AND PRODUCT
+--------------------------------
+
+GB freezers:
+  A-markets: 2 total, 0 flagged (0.0%)
+  NA-markets: 15 total, 0 flagged (0.0%)
+
+GB headphones:
+  A-markets: 37 total, 2 flagged (5.4%)
+  NA-markets: 22 total, 1 flagged (4.5%)
+
+SE freezers:
+  A-markets: 0 total, 0 flagged (NaN%)
+  NA-markets: 8 total, 1 flagged (12.5%)
+
+SE headphones:
+  A-markets: 40 total, 2 flagged (5.0%)
+  NA-markets: 68 total, 2 flagged (2.9%)
+
+
+KEY OBSERVATIONS
+----------------
+• Flagged markets exhibit anomalously high consumer losses
+• Markets exceed upper prediction interval bounds
+• Candidates for further pricing pattern analysis
+• Potential indicators of market coordination
+
+
+EXPORTED FILES
+--------------
+
+Tables:
+  • table1_summary_statistics.csv - Detailed statistics by region/product/type
+  • table2_visual_summary.csv - Overview by region and product
+  • table3_top_flagged_markets.csv - Top 10 flagged markets
+  • flagged_markets_for_analysis.csv - All flagged markets
+  • flagged_markets_by_market_size.csv - Distribution by market size
+
+Figures:
+  • figure1_flagged_pct_by_region_product.png
+  • figure2_excess_pct_flagged_markets.png
+  • figure3_normalized_tcl_vs_upper_bound.png
+  • figure4_proportion_flagged_by_market_size.png
+
+METHODOLOGY NOTES
+-----------------
+• Markets normalized by mean total consumer loss within groups
+• Flagging based on exceeding upper prediction intervals
+• Separate analysis for a_markets and na_markets
+• Four region-product combinations analyzed
+
+===============================================

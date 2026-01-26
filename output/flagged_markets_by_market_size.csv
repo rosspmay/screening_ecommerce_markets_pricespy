@@ -1,0 +1,8 @@
+region,product,market_type,mark_size,n_flagged,avg_excess_pct
+gb,headphones,a_markets,2,1,22.907957314782358
+gb,headphones,a_markets,6,1,31.462301761732498
+gb,headphones,na_markets,18,1,162.53551224560368
+se,freezers,na_markets,7,1,2.419444769289759
+se,headphones,a_markets,3,2,92.18458825746545
+se,headphones,na_markets,9,1,17.28422909237318
+se,headphones,na_markets,17,1,670.3269561837325

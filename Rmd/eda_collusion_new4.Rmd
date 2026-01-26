@@ -1,0 +1,372 @@
+---
+title: "EDA Collusion 6"
+author: "Ross May"
+date: "2026-01-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(123)
+```
+
+## Flag homogeneous markets
+
+```{r flag-anomalous-markets}
+# Flag markets where normalized total consumer loss exceeds upper bounds
+library(dplyr)
+library(tidyr)
+library(readr)
+
+# Define the configurations for each case
+cases <- data.frame(
+  region = c("gb", "gb", "se", "se"),
+  product = c("freezers", "headphones", "freezers", "headphones"),
+  cl_folder = c("cl_results_gb_freezers", "cl_results_gb_headphones", 
+                "cl_results_se_freezers", "cl_results_se_headphones"),
+  upper_folder = c("upper_pi_bounds_gb_freezers", "upper_pi_bounds_gb_headphones",
+                   "upper_pi_bounds_se_freezers", "upper_pi_bounds_se_headphones"),
+  upper_file = c("tcl_upper_gb_freez.csv", "tcl_upper_gb_hp.csv",
+                 "tcl_upper_se_freez.csv", "tcl_upper_se_hp.csv"),
+  stringsAsFactors = FALSE
+)
+
+# Function to process a single market file (a_markets or na_markets)
+process_market_file <- function(file_path, upper_bounds, region, product, market_type) {
+  # Read the market data
+  market_data <- read_csv(file_path, show_col_types = FALSE)
+  
+  # Check if file is empty or has no data rows
+  if (nrow(market_data) == 0) {
+    return(data.frame())
+  }
+  
+  # Normalize tot_consum_loss by mean of tot_consum_loss
+  market_data <- market_data %>%
+    mutate(
+      normalized_tcl = tot_consum_loss / mean(tot_consum_loss, na.rm = TRUE),
+      region = region,
+      product = product,
+      market_type = market_type
+    )
+  
+  # Merge with upper bounds
+  market_data <- market_data %>%
+    left_join(upper_bounds, by = c("mark_size" = "ms"))
+  
+  # Flag markets where normalized TCL exceeds upper bound
+  market_data <- market_data %>%
+    mutate(
+      flagged = normalized_tcl > tcl_upper,
+      excess_amount = normalized_tcl - tcl_upper,
+      excess_pct = ((normalized_tcl - tcl_upper) / tcl_upper) * 100
+    )
+  
+  return(market_data)
+}
+
+# Initialize list to store all results
+all_results <- list()
+
+# Process each case
+for (i in 1:nrow(cases)) {
+  region <- cases$region[i]
+  product <- cases$product[i]
+  cl_folder <- cases$cl_folder[i]
+  upper_folder <- cases$upper_folder[i]
+  upper_file <- cases$upper_file[i]
+  
+  cat(sprintf("\n=== Processing: %s %s ===\n", toupper(region), product))
+  
+  # Read upper bounds
+  upper_bounds_path <- file.path("output", upper_folder, upper_file)
+  upper_bounds <- read_csv(upper_bounds_path, show_col_types = FALSE)
+  
+  # Process a_markets
+  a_markets_path <- file.path("output", cl_folder, "a_markets.csv")
+  if (file.exists(a_markets_path)) {
+    a_results <- process_market_file(a_markets_path, upper_bounds, region, product, "a_markets")
+    
+    if (nrow(a_results) > 0) {
+      # Save detailed results for a_markets
+      output_file <- file.path("output", cl_folder, "a_markets_flagged.csv")
+      write_csv(a_results, output_file)
+      cat(sprintf("  A-markets: %d markets, %d flagged (%.1f%%)\n", 
+                  nrow(a_results), sum(a_results$flagged), 
+                  100 * sum(a_results$flagged) / nrow(a_results)))
+      
+      all_results[[paste0(region, "_", product, "_a")]] <- a_results
+    }
+  }
+  
+  # Process na_markets
+  na_markets_path <- file.path("output", cl_folder, "na_markets.csv")
+  if (file.exists(na_markets_path)) {
+    na_results <- process_market_file(na_markets_path, upper_bounds, region, product, "na_markets")
+    
+    if (nrow(na_results) > 0) {
+      # Save detailed results for na_markets
+      output_file <- file.path("output", cl_folder, "na_markets_flagged.csv")
+      write_csv(na_results, output_file)
+      cat(sprintf("  NA-markets: %d markets, %d flagged (%.1f%%)\n", 
+                  nrow(na_results), sum(na_results$flagged), 
+                  100 * sum(na_results$flagged) / nrow(na_results)))
+      
+      all_results[[paste0(region, "_", product, "_na")]] <- na_results
+    }
+  }
+}
+
+# Combine all results
+combined_results <- bind_rows(all_results)
+
+# Save combined detailed results
+write_csv(combined_results, "output/all_markets_flagged_detailed.csv")
+cat(sprintf("\n=== Overall Results ===\n"))
+cat(sprintf("Total markets analyzed: %d\n", nrow(combined_results)))
+cat(sprintf("Total flagged markets: %d (%.1f%%)\n", 
+            sum(combined_results$flagged), 
+            100 * sum(combined_results$flagged) / nrow(combined_results)))
+
+# Create summary statistics
+summary_stats <- combined_results %>%
+  group_by(region, product, market_type) %>%
+  summarise(
+    total_markets = n(),
+    flagged_markets = sum(flagged),
+    flagged_pct = 100 * sum(flagged) / n(),
+    avg_normalized_tcl = mean(normalized_tcl),
+    avg_tcl_upper = mean(tcl_upper, na.rm = TRUE),
+    max_excess_amount = max(excess_amount[flagged], na.rm = TRUE),
+    avg_excess_amount = mean(excess_amount[flagged], na.rm = TRUE),
+    avg_excess_pct = mean(excess_pct[flagged], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Save summary statistics
+write_csv(summary_stats, "output/flagged_markets_summary.csv")
+write_csv(summary_stats, "assets/flagged_markets_summary.csv")
+print(summary_stats)
+
+# Create a list of flagged markets for further analysis
+flagged_markets <- combined_results %>%
+  filter(flagged) %>%
+  select(region, product, market_type, product_id, mark_size, 
+         tot_consum_loss, normalized_tcl, tcl_upper, 
+         excess_amount, excess_pct) %>%
+  arrange(region, product, market_type, desc(excess_pct))
+
+# Save flagged markets list
+write_csv(flagged_markets, "output/flagged_markets_for_analysis.csv")
+write_csv(flagged_markets, "assets/flagged_markets_for_analysis.csv")
+cat(sprintf("\nFlagged markets saved to: output/flagged_markets_for_analysis.csv\n"))
+cat(sprintf("Number of flagged markets for pricing pattern analysis: %d\n", nrow(flagged_markets)))
+
+# Create market size distribution of flagged markets
+ms_distribution <- flagged_markets %>%
+  group_by(region, product, market_type, mark_size) %>%
+  summarise(
+    n_flagged = n(),
+    avg_excess_pct = mean(excess_pct),
+    .groups = "drop"
+  ) %>%
+  arrange(region, product, market_type, mark_size)
+
+write_csv(ms_distribution, "output/flagged_markets_by_market_size.csv")
+write_csv(ms_distribution, "assets/flagged_markets_by_market_size.csv")
+
+# Create visual summary table
+visual_summary <- combined_results %>%
+  group_by(region, product) %>%
+  summarise(
+    a_markets_total = sum(market_type == "a_markets"),
+    a_markets_flagged = sum(market_type == "a_markets" & flagged),
+    a_markets_flagged_pct = 100 * sum(market_type == "a_markets" & flagged) / sum(market_type == "a_markets"),
+    na_markets_total = sum(market_type == "na_markets"),
+    na_markets_flagged = sum(market_type == "na_markets" & flagged),
+    na_markets_flagged_pct = 100 * sum(market_type == "na_markets" & flagged) / sum(market_type == "na_markets"),
+    .groups = "drop"
+  )
+
+write_csv(visual_summary, "output/flagged_markets_visual_summary.csv")
+write_csv(visual_summary, "assets/flagged_markets_visual_summary.csv")
+print(visual_summary)
+
+cat("\n=== Analysis Complete ===\n")
+cat("Output files created:\n")
+cat("  1. output/all_markets_flagged_detailed.csv - All markets with flagging status\n")
+cat("  2. output/flagged_markets_summary.csv - Summary statistics by region/product/type\n")
+cat("  3. output/flagged_markets_for_analysis.csv - List of flagged markets for pricing analysis\n")
+cat("  4. output/flagged_markets_by_market_size.csv - Distribution by market size\n")
+cat("  5. output/flagged_markets_visual_summary.csv - Quick visual summary\n")
+cat("  6. Individual *_flagged.csv files in each cl_results_* folder\n")
+```
+
+## Results Summary
+
+The analysis identified **8 flagged markets (4.2%)** out of 192 total markets where normalized total consumer loss exceeds the upper prediction interval bounds:
+
+**Breakdown by Region and Product:**
+- **GB Freezers**: 0 flagged markets (0% of 17 markets)
+- **GB Headphones**: 3 flagged markets (5.1% of 59 markets)
+  - 2 in a_markets (5.4% of 37)
+  - 1 in na_markets (4.5% of 22)
+- **SE Freezers**: 1 flagged market (12.5% of 8 na_markets)
+- **SE Headphones**: 4 flagged markets (3.7% of 108 markets)
+  - 2 in a_markets (5.0% of 40)
+  - 2 in na_markets (2.9% of 68)
+
+These flagged markets exhibit anomalously high consumer losses relative to their upper bounds and are candidates for further pricing pattern analysis to identify potential coordination mechanisms.
+
+## Methodology: Summary Statistics Computations
+
+### 1. Normalization
+For each market within a region-product-type combination (e.g., all GB headphones a_markets), the total consumer loss is normalized by dividing by the mean:
+
+$$\text{normalized\_tcl} = \frac{\text{tot\_consum\_loss}}{\text{mean(tot\_consum\_loss)}}$$
+
+This produces a dimensionless measure where values around 1.0 represent markets with average consumer loss, while values >1 indicate above-average loss.
+
+### 2. Flagging Criterion
+Markets are flagged when their normalized total consumer loss exceeds the upper prediction interval bound for their market size:
+
+$$\text{flagged} = \begin{cases} 
+\text{TRUE} & \text{if normalized\_tcl} > \text{tcl\_upper} \\
+\text{FALSE} & \text{otherwise}
+\end{cases}$$
+
+### 3. Excess Measures
+For flagged markets, we compute two excess measures:
+
+- **Excess Amount**: $\text{excess\_amount} = \text{normalized\_tcl} - \text{tcl\_upper}$
+- **Excess Percentage**: $\text{excess\_pct} = \frac{\text{normalized\_tcl} - \text{tcl\_upper}}{\text{tcl\_upper}} \times 100$
+
+### 4. Summary Statistics by Region-Product-Type
+The `summary_stats` table groups markets by region, product, and market_type, computing:
+
+- **total_markets**: Count of markets in the group: $n()$
+- **flagged_markets**: Count of flagged markets: $\sum(\text{flagged})$
+- **flagged_pct**: Percentage flagged: $\frac{\sum(\text{flagged})}{n()} \times 100$
+- **avg_normalized_tcl**: Mean normalized TCL: $\text{mean(normalized\_tcl)}$
+- **avg_tcl_upper**: Mean upper bound: $\text{mean(tcl\_upper)}$
+- **max_excess_amount**: Maximum excess among flagged markets: $\max(\text{excess\_amount}|\text{flagged})$
+- **avg_excess_amount**: Mean excess among flagged markets: $\text{mean(excess\_amount}|\text{flagged})$
+- **avg_excess_pct**: Mean excess % among flagged markets: $\text{mean(excess\_pct}|\text{flagged})$
+
+### 5. Visual Summary by Region-Product
+The `visual_summary` table groups by region and product only, computing:
+
+- **a_markets_total**: Count of a_markets: $\sum(\text{market\_type} == \text{"a\_markets"})$
+- **a_markets_flagged**: Count of flagged a_markets: $\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})$
+- **a_markets_flagged_pct**: Percentage of a_markets flagged: $\frac{\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"a\_markets"})} \times 100$
+- **na_markets_total**: Count of na_markets: $\sum(\text{market\_type} == \text{"na\_markets"})$
+- **na_markets_flagged**: Count of flagged na_markets: $\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})$
+- **na_markets_flagged_pct**: Percentage of na_markets flagged: $\frac{\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"na\_markets"})} \times 100$
+
+### 6. Market Size Distribution
+The `ms_distribution` table groups flagged markets by region, product, market_type, and mark_size, showing:
+
+- **n_flagged**: Count of flagged markets at each market size
+- **avg_excess_pct**: Average excess percentage at each market size
+
+### Interpreting NaN and -Inf Values
+
+When examining the summary tables, you may encounter special values:
+
+**NaN (Not a Number)** appears when dividing by zero, specifically when:
+
+- Calculating percentage metrics (e.g., `a_markets_flagged_pct` or `na_markets_flagged_pct`) for market types with **zero total markets**
+- Example: SE freezers has 0 a_markets, resulting in $\frac{0}{0} \times 100 = \text{NaN}$
+- **Interpretation**: "This market type category doesn't exist in this region-product combination"
+
+**-Inf (Negative Infinity)** appears when calculating max() or mean() on an empty set, specifically when:
+
+- Computing excess measures (`max_excess_amount`, `avg_excess_amount`, `avg_excess_pct`) for groups with **zero flagged markets**
+- Example: GB freezers a_markets has 0 flagged markets, so `max(excess_amount[flagged])` evaluates to `-Inf`
+- **Interpretation**: "No flagged markets exist in this group to calculate statistics from"
+
+These are mathematically correct results, not errors. They indicate categories with insufficient data and should be interpreted as missing or non-applicable values in the analysis context.
+
+**Reporting Options**: You can leave these values as-is for mathematical completeness and transparency about missing data, or replace them with `NA` or `0` depending on your reporting preference and audience needs.
+
+```{r view-flagged-results}
+library(ggplot2)
+library(knitr)
+
+# Display summary statistics table
+cat("\n### Summary Statistics by Region, Product, and Market Type\n\n")
+kable(summary_stats, digits = 2, caption = "Flagged Markets Summary Statistics")
+
+# Export summary statistics as formatted table
+write_csv(summary_stats, "assets/table1_summary_statistics.csv")
+
+# Display visual summary
+cat("\n### Visual Summary by Region and Product\n\n")
+kable(visual_summary, digits = 2, caption = "Markets Overview")
+
+# Export visual summary as formatted table
+write_csv(visual_summary, "assets/table2_visual_summary.csv")
+
+# Display flagged markets list
+cat("\n### List of Flagged Markets (", nrow(flagged_markets), " markets)\n\n")
+kable(head(flagged_markets, 10), digits = 2, caption = "Top 10 Flagged Markets by Excess %")
+
+# Export top flagged markets table
+write_csv(head(flagged_markets, 10), "assets/table3_top_flagged_markets.csv")
+
+# Plot 1: Flagged markets by region and product
+p1 <- ggplot(summary_stats, aes(x = paste(region, product), y = flagged_pct, fill = market_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Percentage of Flagged Markets by Region, Product, and Market Type",
+       x = "Region & Product",
+       y = "Flagged %",
+       fill = "Market Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(p1)
+ggsave("assets/figure1_flagged_pct_by_region_product.png", plot = p1, width = 10, height = 6, dpi = 300)
+
+# Plot 2: Distribution of excess percentages for flagged markets
+if (nrow(flagged_markets) > 0) {
+  p2 <- ggplot(flagged_markets, aes(x = paste(region, product), y = excess_pct, color = market_type)) +
+    geom_point(size = 3) +
+    labs(title = "Excess % Above Upper Bound for Flagged Markets",
+         x = "Region & Product",
+         y = "Excess % Above Upper Bound",
+         color = "Market Type") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  print(p2)
+  ggsave("assets/figure2_excess_pct_flagged_markets.png", plot = p2, width = 10, height = 6, dpi = 300)
+}
+
+# Plot 3: Normalized TCL vs Upper Bound for all markets
+p3 <- ggplot(combined_results, aes(x = tcl_upper, y = normalized_tcl, color = flagged)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Normalized Total Consumer Loss vs Upper Bound",
+       x = "Upper Bound (tcl_upper)",
+       y = "Normalized TCL",
+       color = "Flagged") +
+  facet_wrap(~ paste(region, product), scales = "free") +
+  theme_minimal()
+print(p3)
+ggsave("assets/figure3_normalized_tcl_vs_upper_bound.png", plot = p3, width = 12, height = 8, dpi = 300)
+
+# Plot 4: Distribution by market size
+p4 <- ggplot(combined_results, aes(x = as.factor(mark_size), fill = flagged)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Flagged Markets by Market Size",
+       x = "Market Size",
+       y = "Proportion",
+       fill = "Flagged") +
+  facet_wrap(~ paste(region, product)) +
+  theme_minimal()
+print(p4)
+ggsave("assets/figure4_proportion_flagged_by_market_size.png", plot = p4, width = 12, height = 8, dpi = 300)
+```
+
+
+
+

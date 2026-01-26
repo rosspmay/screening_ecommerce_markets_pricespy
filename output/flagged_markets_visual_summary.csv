@@ -1,0 +1,5 @@
+region,product,a_markets_total,a_markets_flagged,a_markets_flagged_pct,na_markets_total,na_markets_flagged,na_markets_flagged_pct
+gb,freezers,2,0,0,15,0,0
+gb,headphones,37,2,5.405405405405405,22,1,4.545454545454546
+se,freezers,0,0,NA,8,1,12.5
+se,headphones,40,2,5,68,2,2.9411764705882355

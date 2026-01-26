@@ -1,0 +1,3 @@
+product_id,tot_consum_loss,mark_size,normalized_tcl,region,product,market_type,tcl_upper,flagged,excess_amount,excess_pct
+5295894,215.83999999999992,2,0.013710516520079827,gb,freezers,a_markets,7.63610781277895,FALSE,-7.62239729625887,-99.8204515067593
+4521605,31269.480000000003,3,1.98628948347992,gb,freezers,a_markets,7.31813347649943,FALSE,-5.331843993019509,-72.8579768344148
