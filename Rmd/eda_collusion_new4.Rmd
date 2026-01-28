@@ -249,6 +249,8 @@ The analysis identified **8 flagged markets (4.2%)** out of 192 total markets wh
   - 2 in A markets (5.0% of 40)
   - 2 in NA markets (2.9% of 68)
 
+**Interpreting Excess Percentages**: The average excess percentage indicates how far flagged markets exceed their upper bound thresholds. For example, an average excess of 343.8% means that flagged markets in that group have normalized CPG values that are, on average, 343.8% higher than their upper bound threshold. This is equivalent to the normalized CPG being approximately 4.4 times the threshold value (1 + 3.438). Higher excess percentages indicate more extreme deviations from expected pricing behavior. Among flagged markets, the average excess ranges from approximately 2.4% to 343.8% across different region-product-type combinations, with SE Headphones NA markets showing the most extreme deviations.
+
 These flagged markets exhibit anomalously high CPG relative to their upper prediction interval bounds and are candidates for further pricing pattern analysis to identify potential coordination mechanisms.
 
 **Figure 1. Percentage of Flagged Markets by Country, Product Category, and Market Type** - Bar chart comparing flagged percentages across all region-product-market type combinations.
