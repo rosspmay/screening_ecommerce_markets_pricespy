@@ -203,6 +203,32 @@ cat("  5. output/flagged_markets_visual_summary.csv - Quick visual summary\n")
 cat("  6. Individual *_flagged.csv files in each cl_results_* folder\n")
 ```
 
+## Mixed Markets Summary
+
+**Mixed markets** are product markets where both algorithmic (A) and non-algorithmic (NA) retailers coexist. The analysis identified **429 mixed markets** across all region-product combinations:
+
+- **GB Freezers**: 46 mixed markets
+  - Avg CPG: £24,986 | Median CPG: £15,301
+  - Avg Normalised CPG: 1.0 | Median Normalised CPG: 0.61
+  - Market size range: 2-20 retailers (avg: 6.7)
+
+- **GB Headphones**: 216 mixed markets (largest category)
+  - Avg CPG: £20,509 | Median CPG: £11,494
+  - Avg Normalised CPG: 1.0 | Median Normalised CPG: 0.56
+  - Market size range: 2-20 retailers (avg: 6.5)
+
+- **SE Freezers**: 9 mixed markets
+  - Avg CPG: SEK 930,714 | Median CPG: SEK 832,827
+  - Avg Normalised CPG: 1.0 | Median Normalised CPG: 0.89
+  - Market size range: 2-20 retailers (avg: 10.4)
+
+- **SE Headphones**: 158 mixed markets
+  - Avg CPG: SEK 193,261 | Median CPG: SEK 126,713
+  - Avg Normalised CPG: 1.0 | Median Normalised CPG: 0.66
+  - Market size range: 2-20 retailers (avg: 8.6)
+
+**Key Observations**: GB Headphones accounts for over half (50%) of all mixed markets. Swedish markets show higher average CPG values in absolute terms but follow similar normalized patterns. The median normalised CPG across all categories ranges from 0.56 to 0.89, indicating substantial right-skewed distributions with some markets having much higher CPG than average. Mixed markets are of particular interest for studying algorithmic pricing behavior as they allow comparison of pricing patterns when algorithmic and non-algorithmic retailers compete directly.
+
 ## Results Summary
 
 The analysis identified **8 flagged markets (4.2%)** out of 192 total markets where normalized Competitive Price Gap (CPG) exceeds the upper prediction interval bounds (see Table 1 and Figure 1):
@@ -237,12 +263,12 @@ These flagged markets exhibit anomalously high CPG relative to their upper predi
 
 **Figure 4. Proportion of Flagged Markets by Market Size** - Stacked bar charts showing the distribution of flagged vs non-flagged markets across different market sizes for each region-product combination.
 
-**Note on Terminology:** The analysis uses "Competitive Price Gap" (CPG) as the metric, which is represented in the code as `tot_consum_loss`. This terminology reflects the gap between observed and competitive pricing that results in consumer welfare loss. Markets are classified as A markets (assortative matching) or NA markets (non-assortative matching).
+**Note on Terminology:** The analysis uses "Competitive Price Gap" (CPG) as the metric, which is represented in the code as `tot_consum_loss`. This terminology reflects the gap between observed and competitive pricing that results in consumer welfare loss. Markets are classified as A markets (algorithmic) or NA markets (non-algorithmic).
 
 ## Methodology: Summary Statistics Computations
 
 ### 1. Data Processing Pipeline
-The analysis processes four region-product combinations (GB/SE × Freezers/Headphones), analyzing both A markets (markets with assortative matching) and NA markets (markets with non-assortative matching) separately. Results are presented in **Table 1** (detailed statistics showing all 8 region-product-type combinations) and **Table 2** (visual summary aggregated by region-product only).
+The analysis processes four region-product combinations (GB/SE × Freezers/Headphones), analyzing both A markets (markets with algorithmic pricers) and NA markets (markets with non-algorithmic pricers) separately. Results are presented in **Table 1** (detailed statistics showing all 8 region-product-type combinations) and **Table 2** (visual summary aggregated by region-product only).
 
 ### 2. Normalization
 For each market within a region-product-type combination (e.g., all GB headphones A markets), the Competitive Price Gap (CPG) is normalized by dividing by the mean:
@@ -269,29 +295,117 @@ For flagged markets, we compute two excess measures to quantify the degree of an
 
 These measures indicate how far above the upper bound each flagged market falls, both in absolute and relative terms.
 
-### 5. Summary Statistics by Region-Product-Type
-The `summary_stats` table groups markets by region, product, and market_type, computing:
+### 5. Summary Statistics by Region-Product-Type (Table 1)
+The `summary_stats` table groups markets by region, product, and market_type, computing the following columns:
 
-- **total_markets**: Count of markets in the group: $n()$
-- **flagged_markets**: Count of flagged markets: $\sum(\text{flagged})$
-- **flagged_pct**: Percentage flagged: $\frac{\sum(\text{flagged})}{n()} \times 100$
-- **avg_normalized_tcl**: Mean normalized CPG: $\text{mean(normalized\_tcl)}$ (equals 1.0 by construction)
-- **avg_tcl_upper**: Mean upper bound: $\text{mean(tcl\_upper)}$
-- **max_excess_amount**: Maximum excess among flagged markets: $\max(\text{excess\_amount}|\text{flagged})$
-- **avg_excess_amount**: Mean excess among flagged markets: $\text{mean(excess\_amount}|\text{flagged})$
-- **avg_excess_pct**: Mean excess % among flagged markets: $\text{mean(excess\_pct}|\text{flagged})$
+**Grouping Variables:**
+- **region**: Geographic region identifier ("gb" or "se")
+- **product**: Product category identifier ("freezers" or "headphones")
+- **market_type**: Market classification ("a_markets" or "na_markets")
+
+**Computed Columns:**
+- **total_markets**: Count of markets in the group
+  - Formula: $n()$
+  - Interpretation: Total number of markets analyzed in this region-product-type combination
+
+- **flagged_markets**: Count of flagged markets
+  - Formula: $\sum(\text{flagged})$
+  - Interpretation: Number of markets where normalized CPG exceeds the upper bound
+
+- **flagged_pct**: Percentage of markets flagged
+  - Formula: $\frac{\sum(\text{flagged})}{n()} \times 100$
+  - Interpretation: Proportion of anomalous markets in this group
+
+- **avg_normalized_tcl**: Mean normalized CPG across all markets
+  - Formula: $\text{mean(normalized\_tcl)}$
+  - Interpretation: Average normalized competitive price gap (equals 1.0 by construction since normalization divides by the mean)
+
+- **avg_tcl_upper**: Mean upper prediction interval bound
+  - Formula: $\text{mean(tcl\_upper)}$
+  - Interpretation: Average threshold value across all market sizes in this group
+
+- **max_excess_amount**: Maximum excess among flagged markets
+  - Formula: $\max(\text{excess\_amount}|\text{flagged})$
+  - Interpretation: The largest absolute exceedance above the upper bound among flagged markets
+
+- **avg_excess_amount**: Mean excess among flagged markets only
+  - Formula: $\text{mean(excess\_amount}|\text{flagged})$
+  - Interpretation: Average absolute exceedance for markets that exceeded their thresholds
+
+- **avg_excess_pct**: Mean excess percentage among flagged markets only
+  - Formula: $\text{mean(excess\_pct}|\text{flagged})$
+  - Interpretation: Average relative exceedance (as percentage of threshold) for flagged markets
 
 This table is exported to `assets/table1_summary_statistics.csv` with formatted column names for Word document inclusion (e.g., "Avg Normalised CPG", "CPG Upper"). **Figure 1** visualizes the flagged percentages from this table as a grouped bar chart.
 
-### 6. Visual Summary by Region-Product
-The `visual_summary` table groups by region and product only, providing a higher-level overview across market types:
+### 6. Visual Summary by Region-Product (Table 2)
+The `visual_summary` table groups by region and product only, providing a higher-level overview across market types with the following columns:
 
-- **a_markets_total**: Count of a_markets: $\sum(\text{market\_type} == \text{"a\_markets"})$
-- **a_markets_flagged**: Count of flagged a_markets: $\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})$
-- **a_markets_flagged_pct**: Percentage of a_markets flagged: $\frac{\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"a\_markets"})} \times 100$
-- **na_markets_total**: Count of na_markets: $\sum(\text{market\_type} == \text{"na\_markets"})$
-- **na_markets_flagged**: Count of flagged na_markets: $\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})$
-- **na_markets_flagged_pct**: Percentage of na_markets flagged: $\frac{\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"na\_markets"})} \times 100$
+**Grouping Variables:**
+- **region**: Geographic region identifier ("gb" or "se")
+- **product**: Product category identifier ("freezers" or "headphones")
+
+**A Markets Columns:**
+- **a_markets_total**: Total count of A markets (assortative matching)
+  - Formula: $\sum(\text{market\_type} == \text{"a\_markets"})$
+  - Interpretation: Total number of markets with assortative matching pattern in this region-product
+
+- **a_markets_flagged**: Count of flagged A markets
+  - Formula: $\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})$
+  - Interpretation: Number of A markets where normalized CPG exceeds upper bound
+
+- **a_markets_flagged_pct**: Percentage of A markets flagged
+  - Formula: $\frac{\sum(\text{market\_type} == \text{"a\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"a\_markets"})} \times 100$
+  - Interpretation: Proportion of anomalous A markets
+
+### 8. Top Flagged Markets (Table 3)
+The `flagged_markets` dataframe contains all flagged markets, and Table 3 displays the top 10 ranked by excess percentage. The columns are:
+
+**Identification Variables:**
+- **region**: Geographic region where the market exists ("gb" or "se")
+- **product**: Product category of the market ("freezers" or "headphones")
+- **market_type**: Market classification ("a_markets" or "na_markets")
+- **product_id**: Unique identifier for the specific product in this market
+
+**Market Characteristics:**
+- **mark_size**: Number of retailers/sellers in the market
+  - Interpretation: Market size used for matching to appropriate upper bound threshold
+
+**Consumer Loss Metrics:**
+- **tot_consum_loss**: Original (unnormalized) total consumer loss
+  - Interpretation: Raw competitive price gap measure before normalization
+
+- **normalized_tcl**: Normalized total consumer loss
+  - Formula: $\frac{\text{tot\_consum\_loss}}{\text{mean(tot\_consum\_loss)}}$
+  - Interpretation: Dimensionless CPG measure where 1.0 = average, >1 = above average
+
+- **tcl_upper**: Upper prediction interval bound for this market size
+  - Interpretation: Threshold value; markets with normalized_tcl > tcl_upper are flagged
+9
+**Excess Measures:**
+- **excess_amount**: Absolute excess above threshold
+  - Formula: $\text{normalized\_tcl} - \text{tcl\_upper}$
+  - Interpretation: How much the normalized CPG exceeds its upper bound
+
+- **excess_pct**: Percentage excess above threshold
+  - Formula: $\frac{\text{normalized\_tcl} - \text{tcl\_upper}}{\text{tcl\_upper}} \times 100$
+  - Interpretation: Relative magnitude of exceedance as percentage of threshold
+  - Note: Table 3 is sorted by this column in descending order to show the most extreme cases
+
+This table is exported to `assets/table3_top_flagged_markets.csv` and shows the 10 markets with the highest excess percentages, representing the most anomalous cases worthy of further investigation.
+
+**NA Markets Columns:**
+- **na_markets_total**: Total count of NA markets (non-assortative matching)
+  - Formula: $\sum(\text{market\_type} == \text{"na\_markets"})$
+  - Interpretation: Total number of markets with non-assortative matching pattern in this region-product
+
+- **na_markets_flagged**: Count of flagged NA markets
+  - Formula: $\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})$
+  - Interpretation: Number of NA markets where normalized CPG exceeds upper bound
+
+- **na_markets_flagged_pct**: Percentage of NA markets flagged
+  - Formula: $\frac{\sum(\text{market\_type} == \text{"na\_markets"} \land \text{flagged})}{\sum(\text{market\_type} == \text{"na\_markets"})} \times 100$
+  - Interpretation: Proportion of anomalous NA markets
 
 This table is exported to `assets/table2_visual_summary.csv` with formatted column names (e.g., "A Markets Total", "NA Markets Flagged %"). This provides a high-level overview complementing the detailed breakdown in Table 1.
 
